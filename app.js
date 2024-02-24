@@ -47,14 +47,47 @@ app.post("/studentLogin", async (req, res) => {
 });
 
 
-//add student details
-app.post("/addStudent",async(req,res)=>{
-    var data=req.body
-    let student=new studentModel(data)
-let result=await student.save()
-    res.json({"status":"success","data":data})
+// Multer storage configuration
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, "./uploads"); // Destination folder for storing uploaded files
+  },
+  filename: function (req, file, cb) {
+    cb(null, file.fieldname + "-" + Date.now() + path.extname(file.originalname)); // File naming with original extension
+  },
+});
 
-})
+// Initialize upload middleware
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 1024 * 1024 * 5 }, // Limit file size to 5MB
+}).single("photo"); // Corrected to "photo"
+
+// Endpoint to add student details with photo
+app.post("/addStudent", (req, res) => {
+  upload(req, res, async (err) => {
+    try {
+      if (err instanceof multer.MulterError) {
+        // A Multer error occurred when uploading
+        return res.status(500).json({ status: "error", message: err.message });
+      } else if (err) {
+        // An unknown error occurred when uploading
+        return res.status(500).json({ status: "error", message: err.message });
+      }
+
+      var data = req.body;
+      data.photo = req.file.filename; // Add the filename to the student data
+      let student = new studentModel(data);
+      let result = await student.save();
+      res.json({ status: "success", data: data });
+    } catch (error) {
+      res.status(500).json({ status: "error", message: error.message });
+    }
+  });
+});
+
+// Serve uploaded files statically
+app.use("/uploads", express.static("uploads"));
 
 // view student by stream
 app.post("/viewStudent", async (req, res) => {
@@ -71,6 +104,31 @@ app.post("/viewStudent", async (req, res) => {
     res.status(500).json({ status: "error", message: error.message });
   }
 });
+
+// //add student details
+// app.post("/addStudent",async(req,res)=>{
+//     var data=req.body
+//     let student=new studentModel(data)
+// let result=await student.save()
+//     res.json({"status":"success","data":data})
+
+// })
+
+// // view student by stream
+// app.post("/viewStudent", async (req, res) => {
+//   try {
+//     const { stream } = req.body;
+//     let students;
+//     if (stream) {
+//       students = await studentModel.find({ stream });
+//     } else {
+//       students = await studentModel.find();
+//     }
+//     res.json({ status: "success", data: students });
+//   } catch (error) {
+//     res.status(500).json({ status: "error", message: error.message });
+//   }
+// });
 
 // Route for placement officer login
 app.post("/adminLogin", async (req, res) => {
