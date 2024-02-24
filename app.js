@@ -1,68 +1,26 @@
 const express = require("express");
-const bodyParser=require("body-parser")
-const cors=require("cors")
-const mongoose=require("mongoose")
-const { questionnaireModel } = require("./Model/QuestionnaireModel");
+const cors = require("cors");
+const mongoose = require("mongoose");
+const multer = require("multer");
+const path = require("path");
 const { adminLoginModel } = require("./Model/AdminLoginModel");
 const { studentLoginModel } = require("./Model/StudentLoginModel");
+const studentModel = require("./Model/StudentModel");
+const Student = require("./Model/StudentModel");
 
-const app=express()
+const app = express();
 
-
-//middleware
-app.use(express.json())
-app.use(express.urlencoded({extended:true}))
-app.use(cors())
-
+// Middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cors());
 
 // MongoDB Connection
 mongoose.connect(
   "mongodb+srv://presi123:presi123@cluster0.dfo33ti.mongodb.net/PlacementDB?retryWrites=true&w=majority"
 );
 
-//Route for submitQuestionnaire
-app.post("/submitQuestionnaire",async(req,res)=>{
-    var data=req.body
-    let questionnaire=new questionnaireModel(data)
-    let result=await questionnaire.save()
-    res.json({"status":"success","data":result})
-}
-)
-
-//Route for add student  (add email and password to db )
-// app.post("/addStudent",async(req,res)=>{
-//   var data=req.body
-//   let studentLogin=new studentLoginModel(data)
-//   let result=await studentLogin.save()
-// res.json({"status":"success","data":result})
-// })
-
-//Route for add Admin(add email, password,stream to db )
-// app.post("/addAdmin",async(req,res)=>{
-//   var data=req.body
-//   let adminLogin=new adminLoginModel(data)
-//   let result=await adminLogin.save()
-// res.json({"status":"success","data":result})
-// })
-
-
-// //view all student data from db
-// app.post("/viewAllStudents", async(req,res)=>{
-//  let result=await studentLoginModel.find()
-// res.json({"status":"success","data":result})
-// })
-// //view all placement officers data from db
-// app.post("/viewAllAdmins", async(req,res)=>{
-//  let result=await adminLoginModel.find()
-// res.json({"status":"success","data":result})
-// })
-
-
-
-
-
-
-// login  for student
+// Route for student login
 app.post("/studentLogin", async (req, res) => {
   try {
     var { email, password } = req.body;
@@ -82,7 +40,6 @@ app.post("/studentLogin", async (req, res) => {
 
     // Return success response
     res.json({ status: "success", data: result });
-
   } catch (error) {
     console.log("error during login", error);
     res.status(500).json({ error: "internal server error" });
@@ -90,9 +47,32 @@ app.post("/studentLogin", async (req, res) => {
 });
 
 
+//add student details
+app.post("/addStudent",async(req,res)=>{
+    var data=req.body
+    let student=new studentModel(data)
+let result=await student.save()
+    res.json({"status":"success","data":data})
 
+})
 
-// login  for Placement officer
+// view student by stream
+app.post("/viewStudent", async (req, res) => {
+  try {
+    const { stream } = req.body;
+    let students;
+    if (stream) {
+      students = await studentModel.find({ stream });
+    } else {
+      students = await studentModel.find();
+    }
+    res.json({ status: "success", data: students });
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
+  }
+});
+
+// Route for placement officer login
 app.post("/adminLogin", async (req, res) => {
   try {
     var { email, password, stream } = req.body;
@@ -111,7 +91,7 @@ app.post("/adminLogin", async (req, res) => {
     }
 
     // Check if stream matches
-    if (result.stream!== stream) {
+    if (result.stream !== stream) {
       return res.status(404).json({ error: "Incorrect stream" });
     }
 
@@ -125,16 +105,83 @@ app.post("/adminLogin", async (req, res) => {
 
 
 
+// Calculate score for a single student based on criteria
+const calculateScore = (student) => {
+  let score = 0;
+
+  // Assuming the provided fields are numerical values
+  if (parseInt(student.registeredInPlacementPortal) >= 90) score += 1000;
+  else if (parseInt(student.registeredInPlacementPortal) >= 60) score += 750;
+  else if (parseInt(student.registeredInPlacementPortal) >= 30) score += 500;
+  else if (parseInt(student.registeredInPlacementPortal) >= 10) score += 250;
+
+  if (parseInt(student.attendedInterviews) >= 90) score += 1000;
+  else if (parseInt(student.attendedInterviews) >= 60) score += 750;
+  else if (parseInt(student.attendedInterviews) >= 30) score += 500;
+  else if (parseInt(student.attendedInterviews) >= 10) score += 250;
+
+  // Adjust the scoring logic for other fields (areaOfInterest, receivedJobOffers) if needed
+
+  return score;
+};
+
+// Calculate total score for a stream
+const calculateStreamScore = async (stream) => {
+  try {
+    const students = await Student.find({ stream });
+    let totalScore = 0;
+
+    for (const student of students) {
+      totalScore += calculateScore(student);
+    }
+
+    return totalScore;
+  } catch (error) {
+    console.error("Error calculating stream score:", error);
+    throw error;
+  }
+};
+
+// Calculate scores for all streams and determine ranks
+const calculateStreamRanks = async () => {
+  try {
+    const streams = ["IT", "MCA", "Electronics"]; // Define your streams
+    const streamScores = [];
+
+    for (const stream of streams) {
+      const score = await calculateStreamScore(stream);
+      streamScores.push({ stream, score });
+    }
+
+    // Sort streamScores based on score in descending order
+    streamScores.sort((a, b) => b.score - a.score);
+
+    // Add rank to each stream
+    for (let i = 0; i < streamScores.length; i++) {
+      streamScores[i].rank = i + 1;
+    }
+
+    return streamScores;
+  } catch (error) {
+    console.error("Error calculating stream ranks:", error);
+    throw error;
+  }
+};
+
+// Endpoint to calculate stream ranks
+app.post("/streamRanks", async (req, res) => {
+  try {
+    const streamRanks = await calculateStreamRanks();
+    res.json(streamRanks);
+  } catch (error) {
+    console.error("Error calculating stream ranks:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
 
 
 
-
-
-
-
-
-
-//server                                                                                                            
-app.listen(4000,()=>{
-    console.log("server running on port 4000....")
-})
+//server
+app.listen(4000, () => {
+  console.log("server running on port 4000....");
+});
