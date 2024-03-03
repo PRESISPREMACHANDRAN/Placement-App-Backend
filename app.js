@@ -20,6 +20,35 @@ mongoose.connect(
   "mongodb+srv://presi123:presi123@cluster0.dfo33ti.mongodb.net/PlacementDB?retryWrites=true&w=majority"
 );
 
+
+
+//ADD STUDENT email,password,name,stream,studentid,photo TO MONGODB
+app.post("/addNewStudent", async (req, res) => {
+  try {
+    const data = req.body;
+    const student = new studentLoginModel(data);
+    const result = await student.save();
+    res.json({ status: "success", data: result });
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
+  }
+});
+
+
+//ADD ADMIN email,password,stream TO DB
+app.post("/addNewAdmin", async (req, res) => {
+  try {
+    const data = req.body;
+    const admin = new adminLoginModel(data);
+    const result = await admin.save();
+    res.json({ status: "success", data: result });
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
+  }
+});
+
+
+
 // Route for student login
 app.post("/studentLogin", async (req, res) => {
   try {
@@ -47,13 +76,29 @@ app.post("/studentLogin", async (req, res) => {
 });
 
 
+
+// //auto-populate student details-email,name,stream,studentid,photo
+// app.post("/autopopulate", async (req, res) => {
+//   let result = await studentLoginModel.findOne({ email: req.body.email });
+//   console.log(result);
+//   if (result) {
+//     res.json({ status: "success", data: result });
+//   } else {
+//     res.json({ status: "failed", message:"Not Found"});
+//   }
+
+// });
+
 // Multer storage configuration
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, "./uploads"); // Destination folder for storing uploaded files
   },
   filename: function (req, file, cb) {
-    cb(null, file.fieldname + "-" + Date.now() + path.extname(file.originalname)); // File naming with original extension
+    cb(
+      null,
+      file.fieldname + "-" + Date.now() + path.extname(file.originalname)
+    ); // File naming with original extension
   },
 });
 
@@ -105,30 +150,7 @@ app.post("/viewStudent", async (req, res) => {
   }
 });
 
-// //add student details
-// app.post("/addStudent",async(req,res)=>{
-//     var data=req.body
-//     let student=new studentModel(data)
-// let result=await student.save()
-//     res.json({"status":"success","data":data})
 
-// })
-
-// // view student by stream
-// app.post("/viewStudent", async (req, res) => {
-//   try {
-//     const { stream } = req.body;
-//     let students;
-//     if (stream) {
-//       students = await studentModel.find({ stream });
-//     } else {
-//       students = await studentModel.find();
-//     }
-//     res.json({ status: "success", data: students });
-//   } catch (error) {
-//     res.status(500).json({ status: "error", message: error.message });
-//   }
-// });
 
 // Route for placement officer login
 app.post("/adminLogin", async (req, res) => {
@@ -160,8 +182,6 @@ app.post("/adminLogin", async (req, res) => {
     res.status(500).json({ error: "internal server error" });
   }
 });
-
-
 
 // Calculate score for a single student based on criteria
 const calculateScore = (student) => {
@@ -236,8 +256,6 @@ app.post("/streamRanks", async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
-
-
 
 //server
 app.listen(4000, () => {
