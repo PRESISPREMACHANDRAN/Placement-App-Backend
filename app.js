@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const bodyParser=require("body-parser")
 const mongoose = require("mongoose");
 const multer = require("multer");
 const path = require("path");
@@ -7,6 +8,7 @@ const { adminLoginModel } = require("./Model/AdminLoginModel");
 const { studentLoginModel } = require("./Model/StudentLoginModel");
 const studentModel = require("./Model/StudentModel");
 const Student = require("./Model/StudentModel");
+require("dotenv").config()
 
 const app = express();
 
@@ -16,9 +18,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 
 // MongoDB Connection
-mongoose.connect(
-  "mongodb+srv://presi123:presi123@cluster0.dfo33ti.mongodb.net/PlacementDB?retryWrites=true&w=majority"
-);
+mongoose.connect(process.env.mongoDBURL);
 
 
 
