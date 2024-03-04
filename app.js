@@ -48,8 +48,7 @@ app.post("/addNewAdmin", async (req, res) => {
 });
 
 
-
-// Route for student login
+//Route for student login and shows that student detail
 app.post("/studentLogin", async (req, res) => {
   try {
     var { email, password } = req.body;
@@ -67,27 +66,68 @@ app.post("/studentLogin", async (req, res) => {
       return res.status(404).json({ error: "Incorrect password" });
     }
 
-    // Return success response
-    res.json({ status: "success", data: result });
+    // Fetch additional student details
+    const additionalDetails = await studentLoginModel(result.studentId);
+
+    // Return success response with student details
+    res.json({
+      status: "success",
+      data: { student: result, additionalDetails },
+    });
   } catch (error) {
-    console.log("error during login", error);
-    res.status(500).json({ error: "internal server error" });
+    console.log("Error during login", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
 
 
-// //auto-populate student details-email,name,stream,studentid,photo
-// app.post("/autopopulate", async (req, res) => {
-//   let result = await studentLoginModel.findOne({ email: req.body.email });
-//   console.log(result);
-//   if (result) {
-//     res.json({ status: "success", data: result });
-//   } else {
-//     res.json({ status: "failed", message:"Not Found"});
-//   }
 
+
+
+
+
+// // Route for student login
+// app.post("/studentLogin", async (req, res) => {
+//   try {
+//     var { email, password } = req.body;
+
+//     // Find student by email
+//     let result = await studentLoginModel.findOne({ email });
+
+//     // If student not found, return error
+//     if (!result) {
+//       return res.status(404).json({ error: "Student not found" });
+//     }
+
+//     // Check if password matches
+//     if (result.password !== password) {
+//       return res.status(404).json({ error: "Incorrect password" });
+//     }
+
+//     // Return success response
+//     res.json({ status: "success", data: result });
+//   } catch (error) {
+//     console.log("error during login", error);
+//     res.status(500).json({ error: "internal server error" });
+//   }
 // });
+
+
+// //auto-populate student details-email,name,stream,studentid,photo
+// app.get('/autopopulate', async (req, res) => {
+//   try {
+//     const students = await StudentLogin.find();
+//     res.json(students);
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({ message: 'Internal server error' });
+//   }
+// });
+
+
+
+
 
 // Multer storage configuration
 const storage = multer.diskStorage({
