@@ -5,7 +5,6 @@ const studentSchema = mongoose.Schema({
   name: { type: String, required: true },
   studentID: { type: String, required: true },
   stream: { type: String, required: true },
-  photo: { type: String, required: true },
   registeredInPlacementPortal: { type: String, required: true },
   placementID: { type: String },
   attendedInterviews: { type: String, required: true },
