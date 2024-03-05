@@ -6,7 +6,7 @@ const studentLoginSchema = mongoose.Schema({
   name: { type: String, required: true },
   stream: { type: String, required: true },
   studentID: { type: String, required: true },
-  photo: { type: String, required: true },
+photo: { type: String, required: true },  // 
   role: { type: String, default: "student", required: false },
 });
 
