@@ -9,6 +9,8 @@ const { studentLoginModel } = require("./Model/StudentLoginModel");
 const studentModel = require("./Model/StudentModel");
 const Student = require("./Model/StudentModel");
 require("dotenv").config()
+const bcrypt = require('bcryptjs');
+const saltRounds = 10; // Number of salt rounds for bcrypt
 
 const app = express();
 
@@ -26,7 +28,26 @@ mongoose.connect(process.env.mongoDBURL);
 app.post("/addNewStudent", async (req, res) => {
   try {
     const data = req.body;
-    const student = new studentLoginModel(data);
+    // Check if studentID field exists in the request body
+    if (!data.studentID) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "studentID field is required." });
+    }
+
+    const hashedPassword = await bcrypt.hash(data.password, saltRounds); // Hash the password
+
+    // Create a new student object with the hashed password
+    const studentData = {
+      email: data.email,
+      password: hashedPassword,
+      name: data.name,
+      stream: data.stream,
+      studentID: data.studentID,
+      photo: data.photo,
+    };
+
+    const student = new studentLoginModel(studentData);
     const result = await student.save();
     res.json({ status: "success", data: result });
   } catch (error) {
@@ -34,12 +55,35 @@ app.post("/addNewStudent", async (req, res) => {
   }
 });
 
+// app.post("/addNewStudent", async (req, res) => {
+//   try {
+//     const data = req.body;
+//     const student = new studentLoginModel(data);
+//     const result = await student.save();
+//     res.json({ status: "success", data: result });
+//   } catch (error) {
+//     res.status(500).json({ status: "error", message: error.message });
+//   }
+// });
+
 
 //ADD ADMIN email,password,stream TO DB
+const saltRound = 10; // Number of salt rounds for bcrypt
+
 app.post("/addNewAdmin", async (req, res) => {
   try {
     const data = req.body;
-    const admin = new adminLoginModel(data);
+    const hashedPassword = await bcrypt.hash(data.password, saltRound); // Hash the password
+
+    // Create a new admin object with the hashed password
+    const adminData = {
+      email: data.email,
+      password: hashedPassword,
+      stream: data.stream,
+      role: data.role
+    };
+
+    const admin = new adminLoginModel(adminData);
     const result = await admin.save();
     res.json({ status: "success", data: result });
   } catch (error) {
@@ -48,37 +92,87 @@ app.post("/addNewAdmin", async (req, res) => {
 });
 
 
+
+// app.post("/addNewAdmin", async (req, res) => {
+//   try {
+//     const data = req.body;
+//     const admin = new adminLoginModel(data);
+//     const result = await admin.save();
+//     res.json({ status: "success", data: result });
+//   } catch (error) {
+//     res.status(500).json({ status: "error", message: error.message });
+//   }
+// });
+
+
 //Route for student login and shows that student detail
+
+
 app.post("/studentLogin", async (req, res) => {
   try {
-    var { email, password } = req.body;
+    const { email, password } = req.body;
 
     // Find student by email
-    let result = await studentLoginModel.findOne({ email });
+    const student = await studentLoginModel.findOne({ email });
 
     // If student not found, return error
-    if (!result) {
+    if (!student) {
       return res.status(404).json({ error: "Student not found" });
     }
 
     // Check if password matches
-    if (result.password !== password) {
-      return res.status(404).json({ error: "Incorrect password" });
+    const passwordMatch = await bcrypt.compare(password, student.password);
+    if (!passwordMatch) {
+      return res.status(401).json({ error: "Incorrect password" });
     }
 
     // Fetch additional student details
-    const additionalDetails = await studentLoginModel(result.studentId);
+    const additionalDetails = await studentLoginModel.findOne({
+      studentId: student._id,
+    });
 
     // Return success response with student details
     res.json({
       status: "success",
-      data: { student: result, additionalDetails },
+      data: { student, additionalDetails },
     });
   } catch (error) {
     console.log("Error during login", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
+
+// app.post("/studentLogin", async (req, res) => {
+//   try {
+//     var { email, password } = req.body;
+
+//     // Find student by email
+//     let result = await studentLoginModel.findOne({ email });
+
+//     // If student not found, return error
+//     if (!result) {
+//       return res.status(404).json({ error: "Student not found" });
+//     }
+
+//     // Check if password matches
+//     if (result.password !== password) {
+//       return res.status(404).json({ error: "Incorrect password" });
+//     }
+
+//     // Fetch additional student details
+//     const additionalDetails = await studentLoginModel(result.studentId);
+
+//     // Return success response with student details
+//     res.json({
+//       status: "success",
+//       data: { student: result, additionalDetails },
+//     });
+//   } catch (error) {
+//     console.log("Error during login", error);
+//     res.status(500).json({ error: "Internal server error" });
+//   }
+// });
 
 
 
@@ -193,35 +287,69 @@ app.post("/viewStudent", async (req, res) => {
 
 
 // Route for placement officer login
+
+
 app.post("/adminLogin", async (req, res) => {
   try {
-    var { email, password, stream } = req.body;
+    const { email, password, stream } = req.body;
 
     // Find placement officer by email
-    let result = await adminLoginModel.findOne({ email });
+    const admin = await adminLoginModel.findOne({ email });
 
     // If placement officer not found, return error
-    if (!result) {
+    if (!admin) {
       return res.status(404).json({ error: "Placement officer not found" });
     }
 
     // Check if password matches
-    if (result.password !== password) {
-      return res.status(404).json({ error: "Incorrect password" });
+    const passwordMatch = await bcrypt.compare(password, admin.password);
+    if (!passwordMatch) {
+      return res.status(401).json({ error: "Incorrect password" });
     }
 
     // Check if stream matches
-    if (result.stream !== stream) {
-      return res.status(404).json({ error: "Incorrect stream" });
+    if (admin.stream !== stream) {
+      return res.status(401).json({ error: "Incorrect stream" });
     }
 
     // Return success response
-    res.json({ status: "success", data: result });
+    res.json({ status: "success", data: admin });
   } catch (error) {
-    console.log("error during login", error);
-    res.status(500).json({ error: "internal server error" });
+    console.log("Error during login", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
+
+
+// app.post("/adminLogin", async (req, res) => {
+//   try {
+//     var { email, password, stream } = req.body;
+
+//     // Find placement officer by email
+//     let result = await adminLoginModel.findOne({ email });
+
+//     // If placement officer not found, return error
+//     if (!result) {
+//       return res.status(404).json({ error: "Placement officer not found" });
+//     }
+
+//     // Check if password matches
+//     if (result.password !== password) {
+//       return res.status(404).json({ error: "Incorrect password" });
+//     }
+
+//     // Check if stream matches
+//     if (result.stream !== stream) {
+//       return res.status(404).json({ error: "Incorrect stream" });
+//     }
+
+//     // Return success response
+//     res.json({ status: "success", data: result });
+//   } catch (error) {
+//     console.log("error during login", error);
+//     res.status(500).json({ error: "internal server error" });
+//   }
+// });
 
 // Calculate score for a single student based on criteria
 const calculateScore = (student) => {
